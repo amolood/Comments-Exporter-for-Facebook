@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>محلل تعليقات فيسبوك</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'sudan-gold': '#ffd700', // تقريب للون الذهبي المذكور في الفوتر
+                        'sudan-dark': '#1a1a1a',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 text-gray-800 flex flex-col min-h-screen">
+
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-600 text-white p-2 rounded-lg">
+                        <i class="fa-brands fa-facebook-f text-xl"></i>
+                    </div>
+                    <h1 class="text-xl font-bold text-gray-900">محلل التعليقات</h1>
+                </div>
+                
+                <div class="w-full md:w-auto">
+                    <label class="flex items-center justify-center px-4 py-2 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors gap-2 group">
+                        <i class="fa-solid fa-cloud-arrow-up text-blue-500 group-hover:scale-110 transition-transform"></i>
+                        <span class="text-sm font-medium text-gray-600" id="fileNameDisplay">اختر ملف JSON</span>
+                        <input type="file" id="jsonFileInput" accept=".json" class="hidden">
+                    </label>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        
+        <div id="controlsArea" class="hidden bg-white rounded-xl shadow-sm p-4 mb-6 transition-all duration-300">
+            <div class="flex flex-col md:flex-row gap-4 justify-between items-center">
+                <div class="flex gap-4 text-sm">
+                    <div class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full border border-blue-100">
+                        <i class="fa-solid fa-comments ml-1"></i>
+                        العدد الكلي: <span id="totalCount" class="font-bold">0</span>
+                    </div>
+                    <div class="bg-green-50 text-green-700 px-3 py-1 rounded-full border border-green-100">
+                        <i class="fa-solid fa-filter ml-1"></i>
+                        المعروض: <span id="filteredCount" class="font-bold">0</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                    <label class="flex items-center gap-2 cursor-pointer bg-white border border-gray-200 px-3 py-2 rounded-lg hover:bg-gray-50 h-10 select-none">
+                        <input type="checkbox" id="noInteractionFilter" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+                        <span class="text-sm text-gray-700 whitespace-nowrap">بدون تفاعل (0)</span>
+                    </label>
+
+                    <div class="relative w-full md:w-64">
+                        <input type="text" id="searchInput" placeholder="بحث في المحتوى أو الاسم..." 
+                               class="w-full pl-4 pr-10 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm h-10">
+                        <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
+                    </div>
+                    
+                    <select id="sortSelect" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white h-10">
+                        <option value="newest">الأحدث أولاً</option>
+                        <option value="oldest">الأقدم أولاً</option>
+                        <option value="reactions">الأكثر تفاعلاً</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="emptyState" class="text-center py-20">
+            <div class="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-file-code text-3xl text-blue-500"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 mb-2">لا توجد بيانات للعرض</h3>
+            <p class="text-gray-500 max-w-md mx-auto">قم برفع ملف JSON الخاص بالتعليقات (Export) لبدء التحليل وعرض البيانات.</p>
+        </div>
+
+        <div id="commentsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            </div>
+
+        <div id="paginationArea" class="hidden mt-8 flex justify-center gap-2">
+            <button id="prevBtn" class="px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium">
+                السابق
+            </button>
+            <span id="pageInfo" class="px-4 py-2 text-gray-600 text-sm flex items-center">
+                صفحة 1
+            </span>
+            <button id="nextBtn" class="px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium">
+                التالي
+            </button>
+        </div>
+
+    </main>
+
+    <footer class="bg-[#111] mt-auto py-8 px-4">
+        <div class="max-w-7xl mx-auto">
+            <div class="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-gray-400 gap-4">
+                <p>&copy; 2025 محلل التعليقات</p>
+                
+                <div class="flex items-center gap-2">
+                    <span>بواسطة</span>
+                    <a href="https://digitalize.sd" target="_blank" class="bg-white/10 hover:bg-sudan-gold hover:text-sudan-dark text-sudan-gold px-3 py-1 rounded-full transition-all duration-300 text-xs font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-code"></i> ديجيتالايز لاب
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        let rawData = [];
+        let filteredData = [];
+        let currentPage = 1;
+        const itemsPerPage = 50; // Performance optimization
+
+        // DOM Elements
+        const fileInput = document.getElementById('jsonFileInput');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const emptyState = document.getElementById('emptyState');
+        const controlsArea = document.getElementById('controlsArea');
+        const commentsGrid = document.getElementById('commentsGrid');
+        const totalCountEl = document.getElementById('totalCount');
+        const filteredCountEl = document.getElementById('filteredCount');
+        const searchInput = document.getElementById('searchInput');
+        const sortSelect = document.getElementById('sortSelect');
+        const paginationArea = document.getElementById('paginationArea');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const pageInfo = document.getElementById('pageInfo');
+        const noInteractionFilter = document.getElementById('noInteractionFilter');
+
+        // Event Listeners
+        fileInput.addEventListener('change', handleFileUpload);
+        searchInput.addEventListener('input', applyFilters);
+        sortSelect.addEventListener('change', applyFilters);
+        noInteractionFilter.addEventListener('change', applyFilters);
+        prevBtn.addEventListener('click', () => changePage(-1));
+        nextBtn.addEventListener('click', () => changePage(1));
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            fileNameDisplay.textContent = file.name;
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const json = JSON.parse(e.target.result);
+                    // Handle if json is array or object wrapped
+                    rawData = Array.isArray(json) ? json : (json.comments || []);
+                    
+                    applyFilters();
+
+                    // UI Updates
+                    emptyState.classList.add('hidden');
+                    controlsArea.classList.remove('hidden');
+                    paginationArea.classList.remove('hidden');
+                    
+                } catch (error) {
+                    alert('حدث خطأ أثناء قراءة الملف. تأكد من صحة تنسيق JSON.');
+                    console.error(error);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function applyFilters() {
+            const term = searchInput.value.toLowerCase();
+            const sortType = sortSelect.value;
+            const onlyNoInteraction = noInteractionFilter.checked;
+
+            filteredData = rawData.filter(item => {
+                // Search Filter
+                const content = item.content ? item.content.toLowerCase() : '';
+                const author = item.author && item.author.name ? item.author.name.toLowerCase() : '';
+                const matchesSearch = content.includes(term) || author.includes(term);
+
+                // Interaction Filter (0 reactions AND 0 subComments)
+                let matchesInteraction = true;
+                if (onlyNoInteraction) {
+                    // Safe parsing for reactions in case of strings
+                    const reactions = parseInt(convertArabicToEnglishNums(item.reactionsCount)) || 0;
+                    const replies = parseInt(convertArabicToEnglishNums(item.subCommentsCount)) || 0;
+                    matchesInteraction = (reactions === 0 && replies === 0);
+                }
+
+                return matchesSearch && matchesInteraction;
+            });
+
+            // Sorting Logic
+            filteredData.sort((a, b) => {
+                if (sortType === 'newest') {
+                    return (b.createdAt || 0) - (a.createdAt || 0);
+                } else if (sortType === 'oldest') {
+                    return (a.createdAt || 0) - (b.createdAt || 0);
+                } else if (sortType === 'reactions') {
+                    const countA = parseInt(convertArabicToEnglishNums(a.reactionsCount)) || 0;
+                    const countB = parseInt(convertArabicToEnglishNums(b.reactionsCount)) || 0;
+                    return countB - countA;
+                }
+            });
+
+            currentPage = 1;
+            renderData();
+        }
+
+        // Removed separate handleSearch and handleSort in favor of unified applyFilters
+
+        // Helper to handle Arabic numerals if present in JSON string
+        function convertArabicToEnglishNums(str) {
+            if(!str) return 0;
+            const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            return str.toString().replace(/[٠-٩]/g, w => arabicNumbers.indexOf(w));
+        }
+
+        function formatDate(timestamp) {
+            if (!timestamp) return '';
+            // Checking if timestamp is in seconds (common in FB exports) or ms
+            const date = new Date(timestamp * 1000); 
+            return new Intl.DateTimeFormat('ar-SA', {
+                year: 'numeric', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            }).format(date);
+        }
+
+        function changePage(delta) {
+            const maxPage = Math.ceil(filteredData.length / itemsPerPage);
+            const newPage = currentPage + delta;
+            
+            if (newPage >= 1 && newPage <= maxPage) {
+                currentPage = newPage;
+                renderData();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        function renderData() {
+            // Update Stats
+            totalCountEl.textContent = rawData.length;
+            filteredCountEl.textContent = filteredData.length;
+
+            // Pagination Logic
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const pageData = filteredData.slice(startIndex, endIndex);
+            const maxPage = Math.ceil(filteredData.length / itemsPerPage) || 1;
+
+            pageInfo.textContent = `صفحة ${currentPage} من ${maxPage}`;
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage === maxPage;
+
+            // Clear Grid
+            commentsGrid.innerHTML = '';
+
+            if (pageData.length === 0) {
+                commentsGrid.innerHTML = `
+                    <div class="col-span-full text-center py-10 text-gray-400">
+                        لا توجد نتائج تطابق بحثك
+                    </div>
+                `;
+                return;
+            }
+
+            // Create Cards
+            pageData.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow flex flex-col h-full';
+                
+                // Safe access to data
+                const avatarUrl = item.author?.avatar || 'https://via.placeholder.com/50';
+                const authorName = item.author?.name || 'مستخدم غير معروف';
+                const content = item.content || '';
+                const reactions = item.reactionsCount || '0';
+                const dateStr = formatDate(item.createdAt);
+                const postUrl = item.url || '#';
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3 mb-3">
+                        <img src="${avatarUrl}" alt="${authorName}" class="w-10 h-10 rounded-full object-cover border border-gray-100" onerror="this.src='https://via.placeholder.com/50'">
+                        <div class="flex-1 min-w-0">
+                            <h4 class="text-sm font-bold text-gray-900 truncate">${authorName}</h4>
+                            <p class="text-xs text-gray-500">${dateStr}</p>
+                        </div>
+                        <a href="${postUrl}" target="_blank" class="text-gray-400 hover:text-blue-600 transition-colors">
+                            <i class="fa-solid fa-arrow-up-right-from-square text-sm"></i>
+                        </a>
+                    </div>
+                    
+                    <div class="flex-grow mb-4">
+                        <p class="text-gray-700 text-sm leading-relaxed whitespace-pre-line break-words">${content}</p>
+                    </div>
+                    
+                    <div class="border-t border-gray-50 pt-3 flex items-center justify-between text-xs text-gray-500 mt-auto">
+                        <div class="flex items-center gap-1.5 bg-blue-50 text-blue-600 px-2 py-1 rounded-md">
+                            <i class="fa-solid fa-thumbs-up"></i>
+                            <span class="font-bold">${reactions}</span>
+                        </div>
+                        ${item.subCommentsCount ? `<span class="flex items-center gap-1"><i class="fa-regular fa-comments"></i> ${item.subCommentsCount} ردود</span>` : ''}
+                    </div>
+                `;
+                
+                commentsGrid.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>
