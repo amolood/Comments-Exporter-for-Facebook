@@ -2156,174 +2156,16 @@
             ),
             {
               checkIfCanUseWithModal: function (o, c, h) {
-                const v = function (A, g) {
-                    return e.MgFIi(A, g);
-                  },
-                  I = function (A) {
-                    return e.gsmhV(A);
-                  };
-                if (!window[f][o])
-                  return console.error(o, e.EUpoh), Promise.resolve(!1);
-                const m = window[f][o];
-                return !m.needUpgrade ||
-                  (m._.memoKey &&
-                    e.Xbqkv(void 0, t[m._.memoKey]) &&
-                    e.FQbDH(c, t[m._.memoKey]))
-                  ? Promise.resolve(!0)
-                  : new Promise(async (A) => {
-                      const g = function (O, U) {
-                          return e.dgqkk(O, U);
-                        },
-                        x = function (O, U) {
-                          return e.QejfJ(O, U);
-                        };
-                      if (m.isCanFreeTry)
-                        if (m.freeTryLeft) {
-                          if (await e.SEOUo(b, o)) return e.MgFIi(A, !0);
-                          const O = r.confirm({
-                            title: e.mvzhA,
-                            content: e.oWpaC(
-                              p,
-                              m,
-                              e.ejZRQ(a.jsxs, a.Fragment, {
-                                children: [
-                                  e.jLinz(a.jsx, "b", {
-                                    style: { fontSize: 18 },
-                                    children: m.freeTryLeft,
-                                  }),
-                                  e.IeFjy,
-                                ],
-                              })
-                            ),
-                            footer: e.LGKbY(a.jsx, e.rbZDq, {
-                              style: {
-                                display: e.dkKGg,
-                                justifyContent: e.ULfcG,
-                                marginTop: 24,
-                              },
-                              children: e.jLinz(a.jsxs, _.Space, {
-                                size: 12,
-                                children: [
-                                  e.lZqVS(a.jsx, _.Button, {
-                                    type: e.RzCTi,
-                                    onClick: () => {
-                                      O.destroy(), g(w, o), g(A, !0);
-                                    },
-                                    children: e.stMGh,
-                                  }),
-                                  e.xCEfc(a.jsx, _.Button, {
-                                    type: e.xtfsn,
-                                    onClick: () => {
-                                      O.destroy(), v(A, !0);
-                                    },
-                                    children: e.FKcfC,
-                                  }),
-                                ],
-                              }),
-                            }),
-                          });
-                        } else
-                          r.confirm({
-                            title: e.unMJJ,
-                            content: e.RDKxB(
-                              p,
-                              m,
-                              e.RDKxB(a.jsx, a.Fragment, { children: e.ZRaRf })
-                            ),
-                            okText: e.SbvXh,
-                            cancelText: e.kfrra,
-                            onOk() {
-                              I(d), v(A, !1);
-                            },
-                            onCancel() {
-                              x(A, !1);
-                            },
-                          });
-                      else if (m.limitation && e.snMzB(m.limitation, 0)) {
-                        if (await e.QejfJ(b, o)) return e.MgFIi(A, !0);
-                        const O = r.confirm({
-                          content: e.joARK(
-                            p,
-                            m,
-                            e.iFRkn(a.jsxs, a.Fragment, {
-                              children: [
-                                e.Dktgi,
-                                e.RDKxB(a.jsx, "b", { children: m.limitation }),
-                                " ",
-                                e.NbYET(h, e.JEZWO),
-                                e.YAing,
-                              ],
-                            })
-                          ),
-                          footer: e.oWpaC(a.jsx, e.rbZDq, {
-                            style: {
-                              display: e.dkKGg,
-                              justifyContent: e.ULfcG,
-                              marginTop: 24,
-                            },
-                            children: e.JjLlW(a.jsxs, _.Space, {
-                              size: 12,
-                              children: [
-                                e.HkMon(a.jsx, _.Button, {
-                                  type: e.RzCTi,
-                                  onClick: () => {
-                                    O.destroy(), v(w, o), v(A, !0);
-                                  },
-                                  children: e.stMGh,
-                                }),
-                                e.LGKbY(a.jsx, _.Button, {
-                                  type: e.xtfsn,
-                                  onClick: () => {
-                                    O.destroy(), v(A, !0);
-                                  },
-                                  children: e.FKcfC,
-                                }),
-                              ],
-                            }),
-                          }),
-                        });
-                      } else
-                        r.confirm({
-                          title: e.unMJJ,
-                          content: e.NHADU(p, m),
-                          okText: "ok",
-                          cancelText: e.kfrra,
-                          onOk() {
-                            x(A, !1);
-                          },
-                          onCancel() {
-                            v(A, !1);
-                          },
-                        });
-                    });
+                return Promise.resolve(!0);
               },
               setUIMemoSettings: async function (o) {
                 await u.send(e.YyHdt, o);
               },
               getFeatureLimitProcessTimeValue: function (o) {
-                const { featureKey: c, currentIndex: h, currentValue: v } = o;
-                if (!window[f][c])
-                  throw (
-                    (console.error(c, e.EUpoh), new Error(c + " not exist"))
-                  );
-                const I = window[f][c];
-                if (!I._.memoKey)
-                  throw (
-                    (console.error(c, e.uKCPU),
-                    new Error(c + " feature._.memoKey not exist"))
-                  );
-                const m = t[I._.memoKey];
-                return I.needUpgrade && e.tuGYj(h, I.limitation) ? m : v;
+                return o.currentValue;
               },
               checkIfCanUse: function (o) {
-                if (!window[f][o]) return console.error(o, e.EUpoh), !1;
-                const c = window[f][o];
-                return (
-                  !c.needUpgrade ||
-                  (c.isCanFreeTry && c.freeTryLeft
-                    ? e.wwBld
-                    : !(!c.limitation || !e.lCIzx(c.limitation, 0)) && e.WHVZo)
-                );
+                return !0;
               },
               getUIMemoSettings: async function () {
                 return await u.send(e.DPvVW);
@@ -2338,10 +2180,10 @@
           n
         ))(ie || {});
         const qn = {
-            fetchLimit: 200,
-            isIncludeNesting: !1,
-            fullSpeed: !1,
-            nestingDepth: 2,
+            fetchLimit: 99999,
+            isIncludeNesting: !0,
+            fullSpeed: !0,
+            nestingDepth: 5,
           },
           Jn = q.createContext(null);
         function At(n) {
@@ -2759,7 +2601,14 @@
             children: n.children,
           });
         }
-        const ve = [{ label: "All comments", value: On }];
+        const ve = [
+          {
+            label: "All comments",
+            value: "CHRONOLOGICAL_UNFILTERED_INTENT_V1",
+          },
+          { label: "Newest first", value: "CHRONOLOGICAL" },
+          { label: "Top comments", value: "RANKED_REPLIES" },
+        ];
         function Et() {
           const n =
               "^comment_rendering_instance_for_feed_location{$1}.^^selectable_intents.*",
@@ -2787,38 +2636,9 @@
             { setSortBy: f } = u(q.useContext, kn),
             { open: d } = u(q.useContext, rn),
             { feedback: p } = i(q.useContext, Pn),
-            w = l(
-              q.useMemo,
-              () => {
-                const c =
-                    window.zKjqYvcSmF(p.__id, n, {
-                      $1: {
-                        location: p.__fragmentOwner.variables.feedLocation,
-                      },
-                    }) ?? !1,
-                  h = c
-                    ? c
-                        .map(({ $1: v }) => ({
-                          label: window.zKjqYvcSmF(v, "title"),
-                          value: window.zKjqYvcSmF(v, "intent_token"),
-                        }))
-                        .filter((v) => v && v.label.trim() && v.value.trim())
-                    : ve;
-                return e(h.length, 0) ? h : ve;
-              },
-              [p]
-            ),
-            b = s(
-              q.useMemo,
-              () =>
-                window.zKjqYvcSmF(
-                  p.__id,
-                  "^comment_rendering_instance_for_feed_location{$1}.^selected_intent.intent_token",
-                  { $1: { location: p.__fragmentOwner.variables.feedLocation } }
-                ) ?? On,
-              [d, p]
-            ),
-            o = l(q.useMemo, () => w.length === 1 && w[0].value === On, [w]);
+            w = ve,
+            b = On,
+            o = !1;
           return (
             l(
               q.useEffect,
@@ -2830,9 +2650,9 @@
                   ? i(f, w[0].value)
                   : r(f, On);
               },
-              [p.__id, w, b]
+              [p?.__id, w, b]
             ),
-            { sortBySelections: w, isDisabledSortBy: o }
+            { sortBySelections: w, isDisabledSortBy: !1 }
           );
         }
         const jt = window.export_comments_for_facebook.fetchLimit.limitation,
@@ -2952,31 +2772,15 @@
                       size: 8,
                       children: [
                         n.syTSm(a.jsx, $e, {
-                          linkPath: n.vlAyd,
                           title: n.qfvpb,
                           children: n.NXyHA,
                         }),
-                        n.syTSm(a.jsx, _.Tooltip, {
-                          title: b
-                            ? n.RYDwC(a.jsxs, a.Fragment, {
-                                children: [
-                                  n.UIOjU,
-                                  " ",
-                                  n.DDBfS(a.jsx, "a", {
-                                    href: n.SxNAV,
-                                    target: n.ybyrW,
-                                    children: n.JYAHx,
-                                  }),
-                                ],
-                              })
-                            : "",
-                          children: n.ggwnL(a.jsx, _.Select, {
-                            style: { minWidth: 200 },
-                            value: p,
-                            onChange: (o) => d(o),
-                            options: w,
-                            disabled: b,
-                          }),
+                        n.ggwnL(a.jsx, _.Select, {
+                          style: { minWidth: 200 },
+                          value: p,
+                          onChange: (o) => d(o),
+                          options: w,
+                          disabled: !1,
                         }),
                       ],
                     }),
