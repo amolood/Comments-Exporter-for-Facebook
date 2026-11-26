@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <h1 data-i18n="title"></h1>
+    <p id="hint" class="muted" data-i18n="hint"></p>
+
+    <form id="opts">
+      <label class="row">
+        <span data-i18n="format"></span>
+        <select name="format">
+          <option value="csv">CSV</option>
+          <option value="json">JSON</option>
+          <option value="both">CSV + JSON</option>
+        </select>
+      </label>
+      <label class="row">
+        <span data-i18n="maxComments"></span>
+        <input name="maxComments" type="number" min="0" step="50" value="0" />
+      </label>
+      <label class="check"><input name="includeReplies" type="checkbox" checked /> <span data-i18n="includeReplies"></span></label>
+      <label class="check"><input name="expandText" type="checkbox" checked /> <span data-i18n="expandText"></span></label>
+      <label class="check"><input name="sortAll" type="checkbox" checked /> <span data-i18n="sortAll"></span></label>
+    </form>
+
+    <div class="actions">
+      <button id="export" class="primary" data-i18n="export"></button>
+      <button id="stop" hidden data-i18n="stop"></button>
+    </div>
+
+    <p id="status" class="status" aria-live="polite"></p>
+
+    <section id="summary" hidden>
+      <div class="stats" id="stats"></div>
+      <h2 data-i18n="topCommenters"></h2>
+      <ol id="topCommenters"></ol>
+      <h2 data-i18n="topComments"></h2>
+      <ol id="topComments"></ol>
+    </section>
+
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>

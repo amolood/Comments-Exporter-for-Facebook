@@ -1,0 +1,69 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1c1e21;
+  --muted: #65676b;
+  --border: #dadde1;
+  --accent: #1877f2;
+  --accent-fg: #ffffff;
+  --card: #f0f2f5;
+  --error: #c62828;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #18191a;
+    --fg: #e4e6eb;
+    --muted: #b0b3b8;
+    --border: #3e4042;
+    --card: #242526;
+    --error: #ef9a9a;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  width: 340px;
+  margin: 0;
+  padding: 14px;
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+h1 { font-size: 16px; margin: 0 0 4px; }
+h2 { font-size: 13px; margin: 12px 0 4px; }
+.muted { color: var(--muted); margin: 0 0 10px; }
+form { display: grid; gap: 6px; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.row select, .row input { width: 120px; }
+select, input[type="number"] {
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+.check { display: flex; align-items: center; gap: 6px; }
+.actions { display: flex; gap: 8px; margin-top: 12px; }
+button {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+button:disabled { opacity: 0.5; cursor: default; }
+.status { min-height: 1.4em; margin: 10px 0 0; }
+.status.error { color: var(--error); }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+.stat { background: var(--card); border-radius: 6px; padding: 6px; text-align: center; }
+.stat b { display: block; font-size: 15px; }
+.stat span { color: var(--muted); font-size: 11px; }
+ol { margin: 0; padding-inline-start: 20px; }
+li { margin: 2px 0; overflow-wrap: anywhere; }
+li a { color: var(--accent); text-decoration: none; }
+li small { color: var(--muted); }
