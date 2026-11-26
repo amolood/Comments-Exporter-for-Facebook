@@ -225,3 +225,60 @@ test('keeps scrolling while scrolling still loads comments', async () => {
   const res = await window.__fbce.analyze(null, { delay: 1, sortAll: false });
   assert.equal(res.summary.total, 40);
 });
+
+test('finds the scroller when it wraps the dialog (Facebook\'s layer), not inside it', async () => {
+  const dom = new JSDOM('<div id="layer" style="overflow-y: auto"><div role="dialog" id="dlg"></div></div>', {
+    url: 'https://www.facebook.com/p/posts/1',
+    runScripts: 'outside-only',
+  });
+  const { window } = dom;
+  const layer = window.document.getElementById('layer');
+  const dlg = window.document.getElementById('dlg');
+  let n = 0;
+  const add = () => {
+    for (let i = 0; i < 10 && n < 35; i++) {
+      n++;
+      dlg.insertAdjacentHTML(
+        'beforeend',
+        `<div role="article"><a href="https://www.facebook.com/u${n}?comment_id=${n}"><span dir="auto">U${n}</span></a>
+         <div dir="auto" style="text-align: start;">c${n}</div></div>`
+      );
+    }
+  };
+  add(); // Facebook shows the first 10
+  Object.defineProperty(layer, 'scrollHeight', { get: () => 1000 });
+  Object.defineProperty(layer, 'clientHeight', { get: () => 300 });
+  Object.defineProperty(layer, 'scrollTop', { get: () => 0, set: add });
+  let pageScrolls = 0;
+  window.Element.prototype.scrollIntoView = () => pageScrolls++;
+  window.eval(scraper);
+  const res = await window.__fbce.analyze(null, { delay: 1, sortAll: false });
+  assert.equal(res.summary.total, 35);
+  assert.equal(pageScrolls, 0);
+});
+
+test('with no scroller found, scrolls into view but puts the page back', async () => {
+  const dom = new JSDOM(
+    `<div role="dialog"><div role="article"><a href="https://www.facebook.com/a?comment_id=1"><span dir="auto">A</span></a>
+     <div dir="auto" style="text-align: start;">hi</div></div></div>`,
+    { url: 'https://www.facebook.com/p/posts/1', runScripts: 'outside-only' }
+  );
+  const { window } = dom;
+  let y = 500;
+  Object.defineProperty(window, 'scrollY', { get: () => y });
+  let intoView = 0;
+  window.Element.prototype.scrollIntoView = () => {
+    intoView++;
+    y = 900; // the browser also moved the page
+  };
+  const restored = [];
+  window.scrollTo = (sx, sy) => {
+    restored.push(sy);
+    y = sy;
+  };
+  window.eval(scraper);
+  await window.__fbce.analyze(null, { delay: 1, sortAll: false });
+  assert.ok(intoView >= 1);
+  assert.ok(restored.length >= 1 && restored.every((v) => v === 500));
+  assert.equal(y, 500);
+});
