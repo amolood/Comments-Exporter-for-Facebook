@@ -124,22 +124,28 @@
     return /auto|scroll|overlay/.test(oy) && el.scrollHeight > el.clientHeight;
   }
 
-  // Scroll the box the comments live in, so Facebook loads more. Inside a
-  // dialog, only the dialog's own scroller moves, never the page behind it.
+  // Scroll the box the comments live in, so Facebook loads more. That box
+  // can be inside the dialog or the layer wrapping it, so look at every
+  // ancestor. The page itself is never scrolled while a dialog is involved.
   // `covered` = a dialog opened over the page during this run.
   function scrollDown(scope, covered = false) {
     const arts = scope.querySelectorAll('[role="article"]');
     const last = arts[arts.length - 1] || scope;
-    const dialog = scope.closest('[role="dialog"]');
-    for (let el = last.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+    const page = document.scrollingElement || document.documentElement;
+    for (let el = last.parentElement; el && el !== document.body && el !== page; el = el.parentElement) {
       if (isScroller(el)) {
         el.scrollTop = el.scrollHeight;
         return;
       }
-      if (el === dialog) return;
     }
-    if (dialog || covered) return;
-    last.scrollIntoView?.({ block: 'end' });
+    const inDialog = !!scope.closest('[role="dialog"]');
+    if (covered && !inDialog) return;
+    if (!last.scrollIntoView) return;
+    // No scroller found: let the browser find it, then put the page back.
+    const x = window.scrollX;
+    const y = window.scrollY;
+    last.scrollIntoView({ block: 'end' });
+    if (inDialog && (window.scrollX !== x || window.scrollY !== y)) window.scrollTo(x, y);
   }
 
   async function selectAllComments(scope, report) {
