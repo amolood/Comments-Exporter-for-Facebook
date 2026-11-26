@@ -247,3 +247,70 @@ test('follows the comments into the popup Facebook opens, and stops scrolling th
   // Only our panel may be scrolled into view; no comment or post in the page behind.
   assert.deepEqual(pageScrolls.filter((e) => !e.classList.contains('fbce-host')), []);
 });
+
+// Modelled on a real Facebook post dialog (English UI, Arabic digits):
+// comments load when the "Loading..." marker is scrolled into view, reply
+// buttons read "View ١ reply", comment reactions are labelled "NaN reactions"
+// with the number as text, and the post's counts live in aria-labels.
+test('real dialog layout: loads past the first 10, opens "View ١ reply", reads Arabic-digit counts', async () => {
+  const ar = (n) => String(n).replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[d]);
+  const cmt = (i) => `
+    <div role="article" aria-label="Comment by User ${i} ${ar(2)} hours ago">
+      <a href="https://www.facebook.com/u${i}?comment_id=${i}"><span dir="auto">User ${i}</span></a>
+      <div dir="auto" style="text-align: start;">comment ${i}</div>
+      <div role="button" aria-label="NaN reactions; see who reacted to this"><span>${ar(2)}</span></div>
+      <a href="https://www.facebook.com/x/posts/1?comment_id=${i}">${ar(2)}h</a>
+    </div>`;
+  let first = '';
+  for (let i = 1; i <= 10; i++) first += cmt(i);
+  const html = `<!doctype html><html lang="en"><body><div role="main"><div style="height:3000px">feed</div></div>
+    <div role="dialog" aria-modal="true"><div id="scroller" style="overflow-y:auto">
+      <div role="article">
+        <a href="https://www.facebook.com/x"><span>Some Page</span></a>
+        <div role="button" aria-label="React with Like to Some Page's post"><span>${ar(40)}</span></div>
+        <div role="button" aria-label="Comment on Some Page's post, ${ar(25)} comments"><span>${ar(25)}</span></div>
+        <div role="button" aria-label="Share Some Page's post, ${ar(3)} shares"><span>${ar(3)}</span></div>
+        <div id="list">${first}<div role="button" id="vr"><span>View ${ar(1)} reply</span></div></div>
+        <div aria-label="Loading..." role="status" data-visualcompletion="loading-state" id="loading"></div>
+      </div>
+    </div></div></body></html>`;
+  const dom = new JSDOM(html, { url: 'https://www.facebook.com/x/posts/1', runScripts: 'outside-only' });
+  const { window } = dom;
+  const doc = window.document;
+  window.chrome = { storage: { local: { get: async () => ({ options: { delay: 5, sortAll: false } }) } } };
+
+  let n = 10;
+  let pageY = 0;
+  Object.defineProperty(window, 'scrollY', { get: () => pageY });
+  window.scrollTo = (x, y) => (pageY = y);
+  window.Element.prototype.scrollIntoView = function () {
+    pageY = 999; // the browser would move the page too
+    if (this.id !== 'loading') return;
+    const list = doc.getElementById('list');
+    for (let k = 0; k < 10 && n < 25; k++) list.insertAdjacentHTML('beforeend', cmt(++n));
+    if (n >= 25) this.remove(); // no more to load
+  };
+  doc.getElementById('vr').addEventListener('click', (e) => {
+    e.currentTarget.outerHTML = `<div role="article" aria-label="Reply by User 99">
+      <a href="https://www.facebook.com/u99?comment_id=1&amp;reply_comment_id=99"><span dir="auto">User 99</span></a>
+      <div dir="auto" style="text-align: start;">a reply</div></div>`;
+  });
+
+  window.eval(scraper);
+  window.eval(tools);
+  const toolbar = doc.querySelector('.fbce-host[data-fbce="toolbar"]');
+  assert.equal(toolbar.parentElement.getAttribute('role'), 'article');
+  toolbar.shadowRoot.querySelector('button.primary').click();
+  const panel = doc.querySelector('.fbce-host[data-fbce="panel"]').shadowRoot;
+  await until(() => panel.querySelector('.grid'), 8000);
+
+  const stats = Object.fromEntries(
+    [...panel.querySelectorAll('.stat')].map((s) => [s.querySelector('span').textContent, s.querySelector('b').textContent])
+  );
+  assert.equal(stats['Comments'], '25', 'loaded past the first 10');
+  assert.equal(stats['Replies'], '1', '"View ١ reply" was opened');
+  assert.equal(stats['Reactions on comments'], '50', '"NaN reactions" read from the button text (25 comments x 2)');
+  const facts = [...panel.querySelectorAll('.fact')].map((f) => f.textContent);
+  assert.deepEqual(facts, ['40Reactions', '25Comments', '3Shares']);
+  assert.equal(pageY, 0, 'the page behind the dialog was put back');
+});

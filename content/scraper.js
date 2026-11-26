@@ -10,13 +10,14 @@
   const textOf = (el) => clean(el?.textContent);
 
   // Buttons that load more comments / replies (English + Arabic).
+  // Digits can be Western or Arabic-Indic: an English UI may say "View ١ reply".
   const EXPAND = [
-    /^view (\d[\d,.]*\s*)?(more|previous) (comments?|replies|repl(y|ies))/i,
-    /^view all \d[\d,.]*\s*(replies|comments)/i,
-    /^view \d[\d,.]*\s*(more )?repl(y|ies)/i,
-    /^(see|show) (\d[\d,.]*\s*)?more (comments?|replies)/i,
-    /^\d[\d,.]*\s*(more )?repl(y|ies)$/i,
-    /^.{0,40} replied\s*·\s*\d+ repl(y|ies)$/i,
+    /^view ([\d٠-٩][\d٠-٩,.٬٫]*\s*)?(more|previous) (comments?|replies|repl(y|ies))/i,
+    /^view all [\d٠-٩][\d٠-٩,.٬٫]*\s*(replies|comments)/i,
+    /^view [\d٠-٩][\d٠-٩,.٬٫]*\s*(more )?repl(y|ies)/i,
+    /^(see|show) ([\d٠-٩][\d٠-٩,.٬٫]*\s*)?more (comments?|replies)/i,
+    /^[\d٠-٩][\d٠-٩,.٬٫]*\s*(more )?repl(y|ies)$/i,
+    /^.{0,40} replied\s*·\s*[\d٠-٩]+ repl(y|ies)$/i,
     /^(عرض|مشاهدة|شاهد).{0,30}(تعليق|تعليقات|التعليقات|رد|ردود|الردود|ردًا)/,
     /^[\d٠-٩]+\s*(رد|ردود|ردًا|الردود)$/,
   ];
@@ -124,28 +125,47 @@
     return /auto|scroll|overlay/.test(oy) && el.scrollHeight > el.clientHeight;
   }
 
-  // Scroll the box the comments live in, so Facebook loads more. That box
-  // can be inside the dialog or the layer wrapping it, so look at every
-  // ancestor. The page itself is never scrolled while a dialog is involved.
+  // Facebook puts a "Loading..." marker after the last loaded comment and
+  // fetches the next batch when it comes into view.
+  const LOADER = '[role="status"][data-visualcompletion="loading-state"], [role="progressbar"]';
+
+  function loader(scope) {
+    const all = [...scope.querySelectorAll(LOADER)].filter((el) => !el.closest('.fbce-host'));
+    return all[all.length - 1] || null;
+  }
+
+  // scrollIntoView moves every scrollable box up to the page. When the
+  // comments are in a dialog (or a dialog covers the page), put the page back.
+  function revealKeepingPage(el, keepPage) {
+    if (!el.scrollIntoView) return;
+    const x = window.scrollX;
+    const y = window.scrollY;
+    el.scrollIntoView({ block: 'end' });
+    if (keepPage && (window.scrollX !== x || window.scrollY !== y)) window.scrollTo(x, y);
+  }
+
+  // Make Facebook load more comments: reveal its loading marker, and scroll
+  // the boxes the comments live in (inside the dialog or the layer around
+  // it) to the bottom. The page itself only moves when no dialog is involved.
   // `covered` = a dialog opened over the page during this run.
   function scrollDown(scope, covered = false) {
+    const inDialog = !!scope.closest('[role="dialog"]');
+    if (covered && !inDialog) return;
+    const keepPage = inDialog || covered;
+    const marker = loader(scope);
+    if (marker) revealKeepingPage(marker, keepPage);
+
     const arts = scope.querySelectorAll('[role="article"]');
     const last = arts[arts.length - 1] || scope;
     const page = document.scrollingElement || document.documentElement;
+    let scrolled = false;
     for (let el = last.parentElement; el && el !== document.body && el !== page; el = el.parentElement) {
       if (isScroller(el)) {
         el.scrollTop = el.scrollHeight;
-        return;
+        scrolled = true;
       }
     }
-    const inDialog = !!scope.closest('[role="dialog"]');
-    if (covered && !inDialog) return;
-    if (!last.scrollIntoView) return;
-    // No scroller found: let the browser find it, then put the page back.
-    const x = window.scrollX;
-    const y = window.scrollY;
-    last.scrollIntoView({ block: 'end' });
-    if (inDialog && (window.scrollX !== x || window.scrollY !== y)) window.scrollTo(x, y);
+    if (!marker && !scrolled) revealKeepingPage(last, keepPage);
   }
 
   async function selectAllComments(scope, report) {
@@ -194,7 +214,8 @@
 
       const buttons = findExpandButtons(scope, clicks, opts);
       if (!buttons.length) {
-        if (++idle >= 3) break;
+        // While the loading marker is there, Facebook has more to give.
+        if (++idle >= (loader(scope) ? 8 : 3)) break;
         const covered = !scope.closest('[role="dialog"]') && visibleDialogs().some((d) => !startDialogs.has(d));
         scrollDown(scope, covered);
         await sleep(opts.delay);
@@ -257,7 +278,12 @@
   function reactionCount(article) {
     for (const el of own(article, '[aria-label]')) {
       const label = el.getAttribute('aria-label');
-      if (REACTION_LABEL.test(label) && /[\d٠-٩]/.test(label)) return parseCount(label);
+      if (!REACTION_LABEL.test(label)) continue;
+      if (/[\d٠-٩]/.test(label)) return parseCount(label);
+      // With Arabic digits Facebook writes "NaN reactions" in the label and
+      // shows the number ("٧") as the button's text.
+      const txt = textOf(el);
+      if (/^[\d٠-٩][\d٠-٩.,٬٫]*\s*(K|M|ألف|مليون)?$/i.test(txt)) return parseCount(txt);
     }
     return 0;
   }
