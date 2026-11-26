@@ -205,6 +205,14 @@
   const COMMENTS_COUNT = /^([\d٠-٩][\d٠-٩.,]*\s*(K|M|ألف|مليون)?)\s*(comments?|تعليقات?|تعليقًا)$/i;
   const SHARES_COUNT = /^([\d٠-٩][\d٠-٩.,]*\s*(K|M|ألف|مليون)?)\s*(shares?|مشاركات?|مشاركة)$/i;
   const ALL_REACTIONS = /^(all reactions|كل التفاعلات|جميع التفاعلات):?\s*([\d٠-٩].*)$/i;
+  // Newer layout: the action buttons show bare numbers ("٢٢٩") and carry the
+  // meaning in aria-label: "Comment on X's post, ٢٢٩ comments".
+  const COMMENTS_LABEL = /([\d٠-٩][\d٠-٩.,٬٫]*\s*(K|M|ألف|مليون)?)\s*(comments?|تعليقات?|تعليقًا)\s*$/i;
+  const SHARES_LABEL = /([\d٠-٩][\d٠-٩.,٬٫]*\s*(K|M|ألف|مليون)?)\s*(shares?|مشاركات?|مشاركة)\s*$/i;
+  const REACT_LABEL = /^(react with|react to|تفاعل)/i;
+  const BARE_NUMBER = /^[\d٠-٩][\d٠-٩.,٬٫]*\s*(K|M|ألف|مليون)?$/i;
+  const label = (el) => el.getAttribute?.('aria-label') || '';
+  const isCommentsCount = (el) => COMMENTS_COUNT.test(textOf(el)) || COMMENTS_LABEL.test(label(el));
   const CLOSE_LABEL = /^(close|إغلاق|اغلاق)$/i;
   // Messenger: the inbox pages, and chat windows / message lists on any page.
   const CHAT_PATH = /^\/(messages|t)\//;
@@ -235,7 +243,7 @@
     if (el.querySelector(COMMENT_LINK)) return true;
     return ownPost(el, 'a[href], [role="button"]').some((x) => {
       const h = x.getAttribute('href') || '';
-      return (h && POST_LINK.test(h)) || COMMENTS_COUNT.test(textOf(x));
+      return (h && POST_LINK.test(h)) || isCommentsCount(x);
     });
   }
 
@@ -270,11 +278,18 @@
     const stats = {};
     for (const el of ownPost(post, '[role="button"], span, a')) {
       const txt = textOf(el);
-      if (!txt || txt.length > 40) continue;
+      const lab = label(el);
+      if ((!txt || txt.length > 40) && !lab) continue;
       let m;
-      if (stats.comments == null && (m = txt.match(COMMENTS_COUNT))) stats.comments = parseCount(m[1]);
-      else if (stats.shares == null && (m = txt.match(SHARES_COUNT))) stats.shares = parseCount(m[1]);
-      else if (stats.reactions == null && (m = txt.match(ALL_REACTIONS))) stats.reactions = parseCount(m[2]);
+      if (stats.comments == null && ((m = txt.match(COMMENTS_COUNT)) || (m = lab.match(COMMENTS_LABEL)))) {
+        stats.comments = parseCount(m[1]);
+      } else if (stats.shares == null && ((m = txt.match(SHARES_COUNT)) || (m = lab.match(SHARES_LABEL)))) {
+        stats.shares = parseCount(m[1]);
+      } else if (stats.reactions == null && (m = txt.match(ALL_REACTIONS))) {
+        stats.reactions = parseCount(m[2]);
+      } else if (stats.reactions == null && REACT_LABEL.test(lab) && BARE_NUMBER.test(txt)) {
+        stats.reactions = parseCount(txt);
+      }
     }
     return stats;
   }
@@ -586,6 +601,21 @@
     const wrap = el('div', { class: 'wrap' + (isDark() ? ' dark' : ''), dir: AR ? 'rtl' : 'ltr' });
     root.append(style, wrap);
     return { host, wrap };
+  }
+
+  // Bring part of our UI into view. Inside a dialog, scrollIntoView would
+  // also move the page behind it, so put the page back (no smooth scroll there).
+  function reveal(node) {
+    if (!node.scrollIntoView) return;
+    const host = node.getRootNode?.().host || node;
+    if (!host.closest?.('[role="dialog"]')) {
+      node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      return;
+    }
+    const x = window.scrollX;
+    const y = window.scrollY;
+    node.scrollIntoView({ block: 'nearest' });
+    if (window.scrollX !== x || window.scrollY !== y) window.scrollTo(x, y);
   }
 
   const controllers = new Map(); // target element -> controller
@@ -919,7 +949,7 @@
     if (ctrl.kind === 'dialog' || countFound(target) > 0) return { scope: target };
 
     const before = new Set(openDialogs());
-    const opener = ownPost(target, '[role="button"], span').find((x) => COMMENTS_COUNT.test(textOf(x)));
+    const opener = ownPost(target, '[role="button"], span').find(isCommentsCount);
     if (opener) {
       opener.click();
       for (let i = 0; i < 10 && !ctrl.cancelled; i++) {
@@ -995,7 +1025,7 @@
       setStatus(ctrl, res.stopped ? t('stopped', { n: fmt(res.summary.total) }) : '');
       render(ctrl);
       place(ctrl);
-      ctrl.panelHost.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+      reveal(ctrl.panelHost);
       return true;
     } catch (e) {
       if (e.message === 'cancelled') setStatus(ctrl, t('cancelled'));
@@ -1040,7 +1070,7 @@
     ctrl.savedRules = await loadDrawRules();
     if (!ctrl.data && !(await analyzePost(ctrl))) return;
     selectTab(ctrl, 'draw');
-    ctrl.panelHost.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    reveal(ctrl.panelHost);
   }
 
   function buildDrawForm(ctrl, saved) {
@@ -1140,7 +1170,7 @@
       if (names.length > 1 && res.winners.length && !reducedMotion()) {
         const name = el('div', { class: 'name' });
         ctrl.drawResult.replaceChildren(el('div', { class: 'roll' }, name, el('div', { class: 'lbl', textContent: t('eligible', { e: fmt(res.entries), p: fmt(res.people), t: fmt(res.total) }) })));
-        ctrl.drawResult.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+        reveal(ctrl.drawResult);
         const end = Date.now() + 1400;
         let wait = 50;
         while (Date.now() < end) {
