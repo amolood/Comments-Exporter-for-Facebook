@@ -209,3 +209,41 @@ test('does not add buttons to chat windows, message lists or Messenger pages', a
   msgr.window.eval(tools);
   assert.equal(msgr.window.document.querySelectorAll('.fbce-host').length, 0);
 });
+
+test('follows the comments into the popup Facebook opens, and stops scrolling the page', async () => {
+  const { window, doc } = setup();
+  window.chrome = { storage: { local: { get: async () => ({ options: { delay: 5 } }) } } };
+  // In the feed, "View more comments" opens the post in a dialog instead of loading inline.
+  const more = doc.getElementById('more');
+  more.replaceWith(more.cloneNode(true)); // drop the inline-loading handler from setup()
+  let closed = 0;
+  doc.getElementById('more').addEventListener('click', () => {
+    if (doc.querySelector('[role="dialog"]')) return;
+    const dlg = doc.createElement('div');
+    dlg.setAttribute('role', 'dialog');
+    dlg.innerHTML = `<div aria-label="Close" role="button" id="x"></div><div id="dscroll" style="overflow-y:auto">
+      ${comment(11, 'ali', 'الخدمة ممتازة جدا 😍😍')}${comment(12, 'sara', 'الخدمة سيئة 😡', '5')}
+      ${comment(21, 'omar', 'تعليق داخل النافذة')}${comment(22, 'huda', 'تعليق آخر داخل النافذة')}</div>`;
+    doc.body.append(dlg);
+    dlg.querySelector('#x').addEventListener('click', () => {
+      closed++;
+      dlg.remove();
+    });
+  });
+  const pageScrolls = [];
+  window.Element.prototype.scrollIntoView = function () {
+    if (!this.closest('[role="dialog"]')) pageScrolls.push(this);
+  };
+
+  shadow(doc, 'p1', 'toolbar').querySelector('button.primary').click();
+  const panel = shadow(doc, 'p1', 'panel');
+  await until(() => panel.querySelector('.grid'), 8000);
+
+  const stats = Object.fromEntries(
+    [...panel.querySelectorAll('.stat')].map((s) => [s.querySelector('span').textContent, s.querySelector('b').textContent])
+  );
+  assert.equal(stats['التعليقات'], '4', 'comments read from the dialog');
+  assert.equal(closed, 1, 'the dialog we followed is closed at the end');
+  // Only our panel may be scrolled into view; no comment or post in the page behind.
+  assert.deepEqual(pageScrolls.filter((e) => !e.classList.contains('fbce-host')), []);
+});

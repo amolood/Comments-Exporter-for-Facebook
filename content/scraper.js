@@ -119,10 +119,27 @@
     });
   }
 
-  function scrollDown(scope) {
+  function isScroller(el) {
+    const oy = getComputedStyle(el).overflowY;
+    return /auto|scroll|overlay/.test(oy) && el.scrollHeight > el.clientHeight;
+  }
+
+  // Scroll the box the comments live in, so Facebook loads more. Inside a
+  // dialog, only the dialog's own scroller moves, never the page behind it.
+  // `covered` = a dialog opened over the page during this run.
+  function scrollDown(scope, covered = false) {
     const arts = scope.querySelectorAll('[role="article"]');
-    const last = arts[arts.length - 1];
-    if (last && last.scrollIntoView) last.scrollIntoView({ block: 'end' });
+    const last = arts[arts.length - 1] || scope;
+    const dialog = scope.closest('[role="dialog"]');
+    for (let el = last.parentElement; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      if (isScroller(el)) {
+        el.scrollTop = el.scrollHeight;
+        return;
+      }
+      if (el === dialog) return;
+    }
+    if (dialog || covered) return;
+    last.scrollIntoView?.({ block: 'end' });
   }
 
   async function selectAllComments(scope, report) {
@@ -144,18 +161,36 @@
     }
   }
 
-  async function expandAll(scope, opts, report) {
+  const visibleDialogs = () =>
+    [...document.querySelectorAll('[role="dialog"]')].filter((d) => d.getClientRects?.().length !== 0);
+
+  // ctx.scope can change mid-run: when Facebook opens the post in a dialog,
+  // opts.rescope(scope) returns that dialog and we carry on there.
+  async function expandAll(ctx, opts, report) {
     const clicks = new WeakMap();
+    const startDialogs = new Set(visibleDialogs());
     let idle = 0;
+    let lastFound = -1;
     for (let round = 0; round < opts.maxRounds && !stopRequested; round++) {
+      const next = opts.rescope?.(ctx.scope);
+      if (next && next !== ctx.scope) {
+        ctx.scope = next;
+        idle = 0;
+        if (opts.sortAll) await selectAllComments(next, report);
+      }
+      const scope = ctx.scope;
       const found = countFound(scope);
       report({ phase: 'expanding', found });
+      // Scrolling that still loads comments is progress, not idling.
+      if (found > lastFound) idle = 0;
+      lastFound = found;
       if (opts.maxComments && found >= opts.maxComments) break;
 
       const buttons = findExpandButtons(scope, clicks, opts);
       if (!buttons.length) {
         if (++idle >= 3) break;
-        scrollDown(scope);
+        const covered = !scope.closest('[role="dialog"]') && visibleDialogs().some((d) => !startDialogs.has(d));
+        scrollDown(scope, covered);
         await sleep(opts.delay);
         continue;
       }
@@ -523,11 +558,11 @@
     stopRequested = false;
     const opts = { ...DEFAULTS, ...options };
     try {
-      scope = scope || findScope();
-      if (opts.sortAll) await selectAllComments(scope, onProgress);
-      await expandAll(scope, opts, onProgress);
+      const ctx = { scope: scope || findScope() };
+      if (opts.sortAll) await selectAllComments(ctx.scope, onProgress);
+      await expandAll(ctx, opts, onProgress);
 
-      let comments = parseComments(scope);
+      let comments = parseComments(ctx.scope);
       if (!opts.includeReplies) comments = comments.filter((c) => !c.parentId);
       if (opts.maxComments) comments = comments.slice(0, opts.maxComments);
       if (!comments.length) throw new Error('no-comments');

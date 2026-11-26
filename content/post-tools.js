@@ -958,11 +958,21 @@
       // Facebook's own count ("120 comments") lets us show a real percentage.
       const expected = ctrl.kind === 'post' ? postStats(ctrl.target).comments : null;
       setProgress(ctrl, t('opening'));
+      const before = new Set(openDialogs());
       const resolved = await resolveScope(ctrl);
       openedDialog = resolved.openedDialog;
       if (ctrl.cancelled) throw new Error('cancelled');
 
-      const res = await api.analyze(resolved.scope, options, (p) => {
+      // If Facebook opens the post in a dialog while we load (e.g. "View more
+      // comments" in the feed), follow the comments into it.
+      const rescope = (cur) => {
+        if (cur.closest('[role="dialog"]')) return cur;
+        const dlg = openDialogs().find((d) => !before.has(d));
+        if (!dlg) return cur;
+        openedDialog = dlg;
+        return dlg;
+      };
+      const res = await api.analyze(resolved.scope, { ...options, rescope }, (p) => {
         if (ctrl.cancelled) return;
         if (p.phase === 'sorting') setProgress(ctrl, t('sorting'));
         if (p.phase !== 'expanding') return;

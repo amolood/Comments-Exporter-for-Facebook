@@ -173,3 +173,55 @@ test('drawWinners filters by the rules and never picks a person twice', () => {
   for (let i = 0; i < 200; i++) seen.add(drawWinners(comments, rules).winners[0].author);
   assert.deepEqual([...seen].sort(), ['ali', 'nour']);
 });
+
+test('in a dialog, scrolls the dialog\'s own scroller and never the page behind it', async () => {
+  const html = `<div role="main"><div role="article" id="behind">page post</div></div>
+    <div role="dialog"><div id="scroller" style="overflow-y: auto">
+      <div role="article"><a href="https://www.facebook.com/a?comment_id=1"><span dir="auto">A</span></a>
+        <div dir="auto" style="text-align: start;">hi</div></div>
+    </div></div>`;
+  const dom = new JSDOM(html, { url: 'https://www.facebook.com/p/posts/1', runScripts: 'outside-only' });
+  const { window } = dom;
+  const scroller = window.document.getElementById('scroller');
+  Object.defineProperty(scroller, 'scrollHeight', { get: () => 900 });
+  Object.defineProperty(scroller, 'clientHeight', { get: () => 300 });
+  const tops = [];
+  Object.defineProperty(scroller, 'scrollTop', { get: () => 0, set: (v) => tops.push(v) });
+  let pageScrolls = 0;
+  window.Element.prototype.scrollIntoView = () => pageScrolls++;
+  window.scrollTo = window.scrollBy = () => pageScrolls++;
+
+  window.eval(scraper);
+  const res = await window.__fbce.analyze(null, { delay: 1, sortAll: false });
+  assert.equal(res.ok, true);
+  assert.equal(res.summary.total, 1);
+  assert.ok(tops.length >= 1 && tops.every((v) => v === 900), 'dialog scroller scrolled');
+  assert.equal(pageScrolls, 0, 'page behind the dialog not scrolled');
+});
+
+test('keeps scrolling while scrolling still loads comments', async () => {
+  const dom = new JSDOM('<div role="dialog"><div id="sc" style="overflow-y: auto"></div></div>', {
+    url: 'https://www.facebook.com/p/posts/1',
+    runScripts: 'outside-only',
+  });
+  const { window } = dom;
+  const sc = window.document.getElementById('sc');
+  let n = 0;
+  const add = () => {
+    for (let i = 0; i < 5 && n < 40; i++) {
+      n++;
+      sc.insertAdjacentHTML(
+        'beforeend',
+        `<div role="article"><a href="https://www.facebook.com/u${n}?comment_id=${n}"><span dir="auto">U${n}</span></a>
+         <div dir="auto" style="text-align: start;">c${n}</div></div>`
+      );
+    }
+  };
+  add();
+  Object.defineProperty(sc, 'scrollHeight', { get: () => 1000 });
+  Object.defineProperty(sc, 'clientHeight', { get: () => 300 });
+  Object.defineProperty(sc, 'scrollTop', { get: () => 0, set: add }); // each scroll loads 5 more
+  window.eval(scraper);
+  const res = await window.__fbce.analyze(null, { delay: 1, sortAll: false });
+  assert.equal(res.summary.total, 40);
+});
